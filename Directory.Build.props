@@ -1,0 +1,61 @@
+<Project>
+
+  <PropertyGroup>
+    <!--
+      Package versions are <MarketingCloudSDK version>.<binding revision>, e.g. 11.0.2.1.
+
+      The first three components are the native Salesforce MobilePush framework inside the
+      package, which is also what upstream tags its releases with (v11.0.2 in
+      salesforce-marketingcloud/MarketingCloudSDK-iOS). The fourth belongs to this repository and
+      increments whenever the bindings or packaging change while the native framework stays put.
+
+      SfmcNativeVersion, not McNativeVersion: the property names are deliberately uniform with
+      the sibling SFMCSDK.Net.iOS repository, so src/Sfmc.Binding.props and the build scripts
+      stay a one-file port between the two.
+    -->
+    <SfmcNativeVersion>11.0.2</SfmcNativeVersion>
+    <SfmcBindingRevision>1</SfmcBindingRevision>
+    <VersionPrefix>$(SfmcNativeVersion).$(SfmcBindingRevision)</VersionPrefix>
+
+    <!--
+      AppGroupSDK is the internal framework MobilePush v11 requires (the package manifests
+      declare MarketingCloud-AppGroupSDK ~> 1.0.0), on its own version line and in its own
+      repository (salesforce-marketingcloud/app-group-internal-sdk). It ships from this
+      repository as a payload-only sibling package.
+    -->
+    <SfmcAppGroupVersion>1.0.0</SfmcAppGroupVersion>
+
+    <!--
+      The SFMC SDK core the MobilePush module plugs into, taken as the sibling repository's NuGet
+      package - mirroring how the native package manifests depend on sfmc-sdk-ios (~> 4.0.1,
+      which is exactly what this pin's first three components wrap).
+    -->
+    <SfmcCorePackageVersion>4.0.1.1</SfmcCorePackageVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Authors>s.bokatuk</Authors>
+    <Company>s.bokatuk</Company>
+    <Copyright>Copyright © s.bokatuk</Copyright>
+    <PackageProjectUrl>https://github.com/sbokatuk/MarketingCloudSDK.Net.iOS</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/sbokatuk/MarketingCloudSDK.Net.iOS</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT AND BSD-3-Clause</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition=" '$(GITHUB_ACTIONS)' == 'true' ">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <SfmcReleaseNotesFile>$(MSBuildThisFileDirectory)docs/release-notes/$(VersionPrefix).md</SfmcReleaseNotesFile>
+    <PackageReleaseNotes Condition=" Exists('$(SfmcReleaseNotesFile)') ">$([System.IO.File]::ReadAllText('$(SfmcReleaseNotesFile)'))</PackageReleaseNotes>
+    <PackageReleaseNotes Condition=" '$(PackageReleaseNotes)' == '' ">https://github.com/sbokatuk/MarketingCloudSDK.Net.iOS/releases/tag/v$(VersionPrefix)</PackageReleaseNotes>
+  </PropertyGroup>
+
+</Project>

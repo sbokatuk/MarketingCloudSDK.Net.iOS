@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <SfmcFramework>AppGroupSDK</SfmcFramework>
+    <SfmcPackageId>MarketingCloudSDK.Net.AppGroupSDK.iOS</SfmcPackageId>
+    <Description>Payload package carrying Salesforce's AppGroupSDK framework - the internal app-group storage layer MobilePush v11 requires (app-group-internal-sdk). Ships the xcframework without projecting its API; MarketingCloudSDK.Net.iOS depends on it.</Description>
+  </PropertyGroup>
+
+  <Import Project="../Sfmc.Binding.props" />
+
+</Project>

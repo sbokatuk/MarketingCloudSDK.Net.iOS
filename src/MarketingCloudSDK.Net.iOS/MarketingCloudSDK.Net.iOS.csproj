@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <SfmcFramework>MarketingCloudSDK</SfmcFramework>
+    <SfmcPackageId>MarketingCloudSDK.Net.iOS</SfmcPackageId>
+    <Description>.NET for iOS bindings for the Salesforce Marketing Cloud MobilePush framework (MarketingCloudSDK) - push registration, inbox, in-app messages and location messaging - at the v11 Unified SDK generation. Successor to the sfmc-net-bindings-mobile packages.</Description>
+  </PropertyGroup>
+
+  <Import Project="../Sfmc.Binding.props" />
+
+  <ItemGroup>
+    <!--
+      The SFMC SDK core this framework's types build on (SFMCSdkModuleConfig, the module and
+      subscriber protocols, the delegate protocols that moved into SFMCSDK at v4). Exact-range:
+      the ApiDefinitions compile against this precise surface, and iOS has no equivalent of the
+      Android Java-dependency-verification constraint that forces bare versions there.
+    -->
+    <PackageReference Include="SFMCSDK.Net.iOS" Version="[$(SfmcCorePackageVersion)]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      The AppGroupSDK payload rides as a sibling package from this repository. ProjectReference,
+      not PackageReference: dotnet pack turns it into an equal-version NuGet dependency, and a
+      PackageReference at $(Version) cannot restore before that version is packed.
+    -->
+    <ProjectReference Include="../MarketingCloudSDK.Net.AppGroupSDK.iOS/MarketingCloudSDK.Net.AppGroupSDK.iOS.csproj" />
+  </ItemGroup>
+
+</Project>

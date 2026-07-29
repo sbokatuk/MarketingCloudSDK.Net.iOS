@@ -1,0 +1,328 @@
+name: build
+
+# Reusable pipeline: packs every SFMC binding package at a given version, validates the
+# packed packages, builds the sample against them, runs the simulator smoke tests, and uploads the
+# packages as an artifact. Callers (pr.yml, release.yml) decide the version and what to do with the
+# result.
+
+on:
+  workflow_call:
+    inputs:
+      verify:
+        description: >
+          Whether to run the verification jobs — package validation, the sample builds, the
+          Release link checks and the e2e suites. Pull requests leave it at true, and are the only
+          place any of this runs. Releases pass false: the tagged commit was already verified on
+          its pull request, so a tag packs and publishes and nothing more. The gate is the same
+          input, with the same name and the same meaning, in every repository.
+        required: false
+        default: true
+        type: boolean
+      version:
+        description: NuGet version to stamp on every package.
+        required: true
+        type: string
+      native-version:
+        description: >
+          sfmc-sdk-ios version to bind against. Defaults to SfmcNativeVersion in
+          Directory.Build.props; set it to build a package for a different line, e.g. 2.18.0.
+        required: false
+        default: ''
+        type: string
+      e2e-target-frameworks:
+        description: >
+          Which of the packages' target frameworks the simulator smoke tests run against, as a JSON
+          array. Defaults to the two extremes: net8, the oldest asset set and the one nothing else
+          exercises, and net10, whose assets are produced by the merge step in BuildNugets.sh and so
+          are the only ones that could be grafted in wrong. net9 sits between them and comes out of
+          the same pack pass as net8, so testing it too would buy little for the runner minutes.
+        required: false
+        default: '["net8.0-ios18.0", "net10.0-ios26.0"]'
+        type: string
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+
+jobs:
+  pack:
+    name: build and pack
+    timeout-minutes: 60
+    # iOS builds require a macOS runner with Xcode; there is no cross-platform path for the native
+    # toolchain.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check README versions
+        run: ./build/CheckReadmeVersions.sh
+
+      - name: Select Xcode
+        uses: ./.github/actions/select-xcode
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          # 9.0.x packs net8+net9 (global.json pins it) and 10.0.x packs net10.
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Install iOS workloads for every SDK band
+        run: |
+          # Each band supplies different reference packs: net8.0-ios18.0 and net9.0-ios18.0 come
+          # from the .NET 9 band, net10.0-ios26.0 from the .NET 10 band. The SDK is chosen by the
+          # global.json in the working directory, so each band is installed from a scratch
+          # directory pinned to that SDK.
+          for major in 9 10; do
+            dir="${RUNNER_TEMP}/sdk${major}"
+            mkdir -p "${dir}"
+            sdk=$(dotnet --list-sdks | grep "^${major}\." | tail -1 | cut -d' ' -f1)
+            echo "installing ios workload for SDK ${sdk}"
+            ( cd "${dir}" \
+              && dotnet new globaljson --sdk-version "${sdk}" --force \
+              && dotnet workload install ios )
+          done
+
+      - name: Resolve native version
+        id: native
+        run: |
+          version="${{ inputs.native-version }}"
+          if [ -z "${version}" ]; then
+            version=$(sed -n 's:.*<SfmcNativeVersion>\(.*\)</SfmcNativeVersion>.*:\1:p' Directory.Build.props | head -1)
+          fi
+          if [ -z "${version}" ]; then
+            echo "::error::could not determine the sfmc-sdk-ios native version"
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Binding sfmc-sdk-ios ${version}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cache SFMC xcframeworks
+        id: xcframeworks
+        uses: actions/cache@v4
+        with:
+          path: libs
+          # The native version is part of the key: without it a build for a different line would
+          # restore the previous version's frameworks and bind the wrong thing. The checksum file
+          # is too, so that re-pinning a hash invalidates the cache.
+          key: sfmc-xcframeworks-${{ steps.native.outputs.version }}-${{ hashFiles('build/FetchXcFrameworks.sh', 'build/checksums.txt') }}
+
+      - name: Fetch SFMC xcframeworks
+        if: steps.xcframeworks.outputs.cache-hit != 'true'
+        run: ./build/FetchXcFrameworks.sh "${{ steps.native.outputs.version }}"
+
+      - name: Pack all packages
+        run: ./build/BuildNugets.sh "${{ inputs.version }}" "${{ steps.native.outputs.version }}"
+
+      - name: Validate packages
+        if: ${{ inputs.verify }}
+        run: dotnet test tests/MarketingCloudSDK.Net.iOS.PackageTests --logger 'trx;LogFileName=package-tests.trx'
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: |
+            artifacts/*.nupkg
+            artifacts/*.snupkg
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload test results
+        if: ${{ inputs.verify && (always()) }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-test-results
+          path: '**/*.trx'
+          if-no-files-found: ignore
+          retention-days: 7
+
+  sample:
+    name: build sample app
+    if: ${{ inputs.verify }}
+    timeout-minutes: 30
+    needs: pack
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: ./.github/actions/select-xcode
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Install MAUI workload
+        run: dotnet workload install maui-ios
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: artifacts
+
+      # The sample consumes the packed packages exactly as a user would, so it is the only thing
+      # that checks the API is still usable the way the README documents - including the
+      # convenience layer, which the generated binding knows nothing about and which a regenerated
+      # binding could silently break.
+      #
+      # Debug, and pinned to the simulator, because this is a compile check and nothing here ships.
+      - name: Build the sample against the packed packages
+        run: |
+          dotnet build samples/MarketingCloudSDK.Net.iOS.Example/MarketingCloudSDK.Net.iOS.Example.csproj \
+            --configuration Debug \
+            -p:RuntimeIdentifier=iossimulator-arm64 \
+            -p:SfmcPackageVersion="${{ inputs.version }}"
+
+  # The Debug sample above restores, resolves and links, but never runs the linker or the AOT
+  # compiler — and those are what a consumer actually ships. The sibling repositories carry a Release
+  # leg for exactly this reason, with the note that "the ILLink/AOT behaviour Release turns on has
+  # broken binding consumers that built fine in Debug"; this is the same check for iOS.
+  #
+  # Affordable here in a way it is not everywhere: the SFMC xcframework is small, unlike the
+  # WebRTC-sized payloads in AntMedia.Net and Red5Pro.Streaming.Net, whose build files record a
+  # measured 38-minute iOS Release build and are deliberately left in Debug.
+  link-release:
+    name: Release link check (device, ${{ matrix.target-framework }})
+    if: ${{ inputs.verify }}
+    timeout-minutes: 45
+    needs: pack
+    runs-on: macos-15
+    strategy:
+      # Both extremes, like the e2e matrix: net9 comes out of the same pack pass as net8, and
+      # net10 is the band new consumers start on. Run per band because a device link failure can
+      # be band-specific - and because the regression this job exists for (sfmc-sdk-ios device
+      # slices missing _OBJC_CLASS_$_ exports) is invisible to every simulator job.
+      fail-fast: false
+      matrix:
+        target-framework: [net9.0-ios18.0, net10.0-ios26.0]
+        include:
+          - target-framework: net9.0-ios18.0
+            sdk-band: net9
+          - target-framework: net10.0-ios26.0
+            sdk-band: net10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: ./.github/actions/select-xcode
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Install MAUI workload
+        run: |
+          # The example is built for the band under test, so the workload must be installed for
+          # the SDK that owns it. global.json pins .NET 9; the net10 band needs .NET 10, which is
+          # steered the same way BuildNugets.sh does it - a scratch directory with its own
+          # global.json, since the SDK is resolved from the working directory.
+          if [ "${{ matrix.sdk-band }}" = "net10" ]; then
+            mkdir -p "${RUNNER_TEMP}/sdk10"
+            ( cd "${RUNNER_TEMP}/sdk10" \
+              && dotnet new globaljson --sdk-version "$(dotnet --list-sdks | grep '^10\.' | tail -1 | cut -d' ' -f1)" --force \
+              && dotnet workload install maui-ios )
+          else
+            dotnet workload install maui-ios
+          fi
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: artifacts
+
+      # Code signing off, because a public runner has neither a certificate nor a provisioning
+      # profile, and neither affects whether the thing links. That leaves the .app itself as the
+      # assertion: AOT and the native link both run before the bundle is assembled, so a failure
+      # in either never gets far enough to produce one.
+      - name: Link the sample for a real device
+        run: |
+          tfm="${{ matrix.target-framework }}"
+          build_dir="$(pwd)"
+          if [ "${{ matrix.sdk-band }}" = "net10" ]; then
+            build_dir="${RUNNER_TEMP}/sdk10"
+          fi
+          ( cd "${build_dir}" && dotnet build "${GITHUB_WORKSPACE}/samples/MarketingCloudSDK.Net.iOS.Example/MarketingCloudSDK.Net.iOS.Example.csproj" \
+            --configuration Release \
+            --framework "${tfm}" \
+            -p:SfmcSdkBand="${{ matrix.sdk-band }}" \
+            -p:RuntimeIdentifier=ios-arm64 \
+            -p:EnableCodeSigning=false \
+            -p:SfmcPackageVersion="${{ inputs.version }}" )
+
+          app="$(find "samples/MarketingCloudSDK.Net.iOS.Example/bin/Release/${tfm}/ios-arm64" -maxdepth 1 -name '*.app' | head -1)"
+          if [ -z "${app}" ]; then
+            echo "::error::no .app under samples/MarketingCloudSDK.Net.iOS.Example/bin/Release/${tfm}/ios-arm64 — the device build did not produce a bundle"
+            exit 1
+          fi
+
+          # Reported rather than asserted on a count: how many assemblies survive the linker is
+          # the linker's business and moves with every SDK update. Zero of them would mean the
+          # build produced a bundle without AOT compiling anything, which is worth failing on.
+          images="$(find "${app}" -name '*.aotdata.arm64' | wc -l | tr -d ' ')"
+          echo "==> ${app}: ${images} AOT images"
+          if [ "${images}" -eq 0 ]; then
+            echo "::error::no AOT images in ${app} — the device build did not AOT compile"
+            exit 1
+          fi
+
+  e2e:
+    name: simulator smoke test (${{ matrix.target-framework }})
+    if: ${{ inputs.verify }}
+    timeout-minutes: 45
+    needs: pack
+    runs-on: macos-15
+    strategy:
+      # fail-fast off: when one target framework breaks it is worth knowing whether the other did
+      # too, since "net8 only" and "both" point at very different causes.
+      fail-fast: false
+      matrix:
+        target-framework: ${{ fromJSON(inputs.e2e-target-frameworks) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: ./.github/actions/select-xcode
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Install iOS workload
+        run: |
+          # The device app is built for the target framework under test, so install the workload
+          # for the band that owns it. global.json pins .NET 9; the app may need .NET 10.
+          mkdir -p "${RUNNER_TEMP}/sdk10"
+          ( cd "${RUNNER_TEMP}/sdk10" \
+            && dotnet new globaljson --sdk-version "$(dotnet --list-sdks | grep '^10\.' | tail -1 | cut -d' ' -f1)" --force \
+            && dotnet workload install ios )
+          dotnet workload install ios
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: artifacts
+
+      - name: Run smoke tests on simulator
+        run: ./.github/scripts/run-simulator-tests.sh "${{ inputs.version }}" "${{ matrix.target-framework }}"
+
+      - name: Upload simulator logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-test-logs-${{ matrix.target-framework }}
+          path: simulator-tests.log
+          if-no-files-found: ignore
+          retention-days: 7

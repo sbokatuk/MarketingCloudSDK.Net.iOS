@@ -1,0 +1,146 @@
+<!--
+  Everything the binding project(s) in this repository have in common.
+
+  Imported explicitly by each .csproj rather than picked up as a Directory.Build.props, because it
+  reads properties the project sets - SfmcFramework and SfmcPackageId - and Directory.Build.props
+  is imported before the project body, so it would see neither.
+
+  The shape of this file is shared with the sibling MarketingCloudSDK.Net.iOS repository, so that
+  a fix in one is a one-file port to the other.
+-->
+<Project>
+
+  <PropertyGroup>
+    <!--
+      Each .NET SDK's iOS workload supports the current target framework and the previous one: the
+      .NET 9 band builds net8.0-ios + net9.0-ios, the .NET 10 band builds net9.0-ios +
+      net10.0-ios. No single SDK can build all three, so BuildNugets.sh packs twice and merges the
+      results - see build/merge-packages.py. SfmcSdkBand selects which pass this build is.
+
+      The platform version is pinned rather than left to the workload's default, because it ends
+      up in the lib/<tfm>/ folder name inside the package.
+    -->
+    <SfmcSdkBand Condition=" '$(SfmcSdkBand)' == '' ">net9</SfmcSdkBand>
+    <TargetFrameworks Condition=" '$(SfmcSdkBand)' == 'net9' ">net8.0-ios18.0;net9.0-ios18.0</TargetFrameworks>
+    <TargetFrameworks Condition=" '$(SfmcSdkBand)' == 'net10' ">net10.0-ios26.0</TargetFrameworks>
+    <!--
+      net8.0-ios is past end of support, which the SDK reports as an error. It ships deliberately:
+      .NET 8 is still where a large share of MAUI apps are, and the previous
+      sfmc-net-bindings-mobile packages targeted net7/net8, so dropping net8 would strand every
+      existing consumer.
+    -->
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <CheckEolWorkloads>false</CheckEolWorkloads>
+
+    <!--
+      iOS 12.2, not the 12.0 Salesforce's podspec states. SFMCSDK is Swift and relies on the
+      OS-provided Swift runtime rather than embedding its own - which is only ABI-stable from
+      12.2. A package claiming 12.0 would be claiming support for two OS versions on which its own
+      dependency does not exist.
+    -->
+    <SupportedOSPlatformVersion>12.2</SupportedOSPlatformVersion>
+
+    <IsBindingProject>true</IsBindingProject>
+    <!--
+      Ship the native payload as a single <Assembly>.resources.zip rather than a directory. The
+      default is 'auto'; the directory form puts every framework file into the package at very
+      long paths, which trips NU5123 and can exceed the 260-character limit on Windows once the
+      global packages folder is prepended - breaking restore for anyone in a MAUI solution
+      without long path support.
+    -->
+    <CompressBindingResourcePackage>true</CompressBindingResourcePackage>
+
+    <!--
+      The namespace is the bare framework name - SFMCSDK - because that is what the previous
+      sfmc-net-bindings-mobile packages exposed. Keeping it means upgrading from the old
+      SFMCSDK.Net.iOS 1.x is a version bump and an API-drift review, not a `using` rewrite.
+    -->
+    <RootNamespace>$(SfmcFramework)</RootNamespace>
+    <AssemblyName>$(SfmcPackageId)</AssemblyName>
+
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>true</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!--
+      CS1591: the binding has no XML doc comments - Salesforce ships no ObjC documentation to
+      import.
+      CS0108/CS0109: Swift protocol conformances reach C# as a protocol interface plus a class
+      that redeclares the same members, so the generator legitimately emits members that hide -
+      or that are marked `new` without hiding - an inherited one. A property of how Swift
+      projects into Objective-C, not something fixable in the binding definitions.
+    -->
+    <NoWarn>$(NoWarn);CS1591;CS0108;CS0109</NoWarn>
+
+    <!--
+      Trim and AOT analysis, permanently on: the Additions layer is ordinary managed code that
+      could acquire a reflection dependency without anyone noticing. IsTrimmable is deliberately
+      NOT set - it would opt these assemblies into consumer-side trimming under partial trim
+      modes, a behaviour change for every app the device tests do not exercise.
+    -->
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+  </PropertyGroup>
+
+  <!-- Packaging -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>$(SfmcPackageId)</PackageId>
+    <Title>.NET for iOS bindings for the native $(SfmcFramework) framework of the Salesforce Marketing Cloud SDK.</Title>
+    <PackageTags>$(PackageTags);salesforce;marketingcloud;sfmc;mobilepush;SDK;MAUI;iOS;dotnet-ios;Binding</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)../build/icon.png" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)../README.md" Pack="true" PackagePath="/" Visible="false" />
+    <!--
+      Both licence texts the package is covered by: MIT for the binding code in this repository,
+      BSD-3-Clause for the native framework built by Salesforce. Packed into a folder so each
+      file keeps its own name.
+    -->
+    <None Include="$(MSBuildThisFileDirectory)../LICENSE" Pack="true" PackagePath="licenses/" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)../licenses/BSD-3-Clause-Salesforce.txt" Pack="true" PackagePath="licenses/" Visible="false" />
+  </ItemGroup>
+
+  <!--
+    The xcframeworks live in one directory at the repository root rather than one copy per
+    project: they arrive from one tag zipball, and private copies would be easy to leave
+    half-updated after a version bump. Nothing native is committed - libs/ is gitignored and
+    populated by build/FetchXcFrameworks.sh, which verifies every slice binary against the
+    SHA-256 pins in build/checksums.txt.
+  -->
+  <PropertyGroup>
+    <SfmcXcFramework>$(MSBuildThisFileDirectory)../libs/$(SfmcFramework).xcframework</SfmcXcFramework>
+  </PropertyGroup>
+
+  <Target Name="ValidateSfmcXcFramework" BeforeTargets="Build;Pack"
+          Condition="!Exists('$(SfmcXcFramework)')">
+    <Error Text="$(SfmcFramework).xcframework is missing. Run ./build/FetchXcFrameworks.sh first." />
+  </Target>
+
+  <Target Name="ValidateSfmcSdkBand" BeforeTargets="Build;Pack" Condition=" '$(TargetFrameworks)' == '' ">
+    <Error Text="SfmcSdkBand must be 'net9' or 'net10', but was '$(SfmcSdkBand)'." />
+  </Target>
+
+  <ItemGroup>
+    <!--
+      SFMCSDK is a dynamic framework with device and simulator slices. SmartLink=False plus the
+      explicit -ObjC linker flag are carried over from the previous bindings, which shipped that
+      way for the whole 1.x line: -ObjC keeps Objective-C categories reachable, which SmartLink
+      would otherwise let the linker discard.
+    -->
+    <NativeReference Include="$(SfmcXcFramework)">
+      <Kind>Framework</Kind>
+      <SmartLink>False</SmartLink>
+      <Frameworks>Foundation UIKit CoreLocation UserNotifications</Frameworks>
+      <LinkerFlags>-ObjC</LinkerFlags>
+    </NativeReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ObjcBindingApiDefinition Include="ApiDefinitions.cs" />
+    <ObjcBindingCoreSource Include="StructsAndEnums.cs" Condition="Exists('$(MSBuildProjectDirectory)/StructsAndEnums.cs')" />
+  </ItemGroup>
+
+</Project>

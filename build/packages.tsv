@@ -1,0 +1,30 @@
+# The package set, and the single source of truth for it.
+#
+# BuildNugets.sh packs in this order, the release and PR workflows generate their package tables
+# from it, and run-simulator-tests.sh clears the local NuGet cache for every id listed here.
+# Adding a package means adding a row here and a project under src/ - nothing else has a second
+# copy of the list to fall out of step with.
+#
+# Rows are in dependency order: a package's in-repo deps must already have appeared above it.
+#
+# package-id	framework	deps (SFMC-family package ids it must declare, or -)
+MarketingCloudSDK.Net.AppGroupSDK.iOS	AppGroupSDK	-
+MarketingCloudSDK.Net.iOS	MarketingCloudSDK	MarketingCloudSDK.Net.AppGroupSDK.iOS,SFMCSDK.Net.iOS
+
+# ----------------------------------------------------------------------------------------------
+# NOT BOUND, and why.
+#
+#   SFMCSDK                  The SFMC SDK core framework. Bound by the sibling repository
+#                            SFMCSDK.Net.iOS, which this package depends on - mirroring the
+#                            native package manifests (sfmc-sdk-ios ~> 4.0.1).
+#
+#   PushFeatureSDK           The modular feature frameworks of the Unified SDK generation
+#   IAMFeatureSDK            (push-feature-sdk-ios, iam-feature-sdk-ios, mam-core-sdk-ios).
+#   MAMCoreSDK               Salesforce's integration docs route apps through the umbrella
+#                            MarketingCloudSDK, which is what this repository binds; these
+#                            become packages once a consumer needs one directly.
+#
+#   AppGroupSDK (API)        The framework SHIPS from this repository as a payload-only package;
+#                            its API is deliberately not projected - the repository upstream is
+#                            named app-group-internal-sdk, and no integration doc names its
+#                            types. The package tests assert the assembly stays empty.

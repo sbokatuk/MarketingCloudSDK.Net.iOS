@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      Which of the package's target frameworks to exercise. Overriding TargetFramework directly on
+      the command line breaks restore, so it goes through a property of our own.
+    -->
+    <SfmcDeviceTargetFramework Condition=" '$(SfmcDeviceTargetFramework)' == '' ">net9.0-ios18.0</SfmcDeviceTargetFramework>
+    <TargetFramework>$(SfmcDeviceTargetFramework)</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <CheckEolWorkloads>false</CheckEolWorkloads>
+
+    <ApplicationId>com.sbokatuk.sfmcsdknet.devicetests</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <SupportedOSPlatformVersion>12.2</SupportedOSPlatformVersion>
+
+    <!--
+      The smoke tests report through stdout, which the runner script streams back with
+      `simctl launch` in console-pty mode. Quietening the Mono logger keeps that stream to the
+      test output rather than runtime chatter.
+    -->
+    <MtouchExtraArgs>--setenv=MONO_LOG_LEVEL=error</MtouchExtraArgs>
+  </PropertyGroup>
+
+  <!--
+    The e2e deliberately consumes the packed NuGet from ./artifacts rather than a
+    ProjectReference, so it exercises the artifact that actually gets published. See NuGet.config
+    for the local feed.
+  -->
+  <PropertyGroup>
+    <SfmcPackageVersion Condition=" '$(SfmcPackageVersion)' == '' ">$(VersionPrefix)</SfmcPackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MarketingCloudSDK.Net.iOS" Version="$(SfmcPackageVersion)" />
+  </ItemGroup>
+
+</Project>

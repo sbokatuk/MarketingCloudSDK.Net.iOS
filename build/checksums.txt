@@ -1,0 +1,10 @@
+# SHA-256 pins for every native framework binary this repository binds.
+#
+# Verified by build/FetchXcFrameworks.sh before anything lands in libs/. Keys are
+# <Framework>-<version>/<xcframework slice>. Regenerate with build/UpdateChecksums.sh after a
+# version bump; a hash that changes for an UNCHANGED version is the tampering event these pins
+# exist to catch.
+MarketingCloudSDK-11.0.2/ios-arm64 d458c2c055390d31fc4d4fdd204e1342d9db29db15ae300255fb10dda3c17da5
+MarketingCloudSDK-11.0.2/ios-arm64_x86_64-simulator 8a3fbbbccf782ccca8ff299a6676a7a9e3e571f986cd317ed35d16f857e6d3ee
+AppGroupSDK-1.0.0/ios-arm64 7d0596cb7bfb2b2933ee0863c60b24c6f1eb57cfff00d458016ae62215ae1e25
+AppGroupSDK-1.0.0/ios-arm64_x86_64-simulator 7ca4d055452186e870822e57b0358dbd18a24570524c5cd0d104b9183508c2a9

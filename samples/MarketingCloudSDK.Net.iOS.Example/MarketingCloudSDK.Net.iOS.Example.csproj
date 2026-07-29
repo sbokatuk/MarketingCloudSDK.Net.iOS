@@ -11,7 +11,7 @@
 		<Nullable>enable</Nullable>
 
 		<ApplicationTitle>MarketingCloudSDK.Net.iOS.Example</ApplicationTitle>
-		<ApplicationId>com.sbokatuk.sfmcsdknet.example</ApplicationId>
+		<ApplicationId>com.sbokatuk.mcsdknet.example</ApplicationId>
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
 		<ApplicationVersion>1</ApplicationVersion>
 

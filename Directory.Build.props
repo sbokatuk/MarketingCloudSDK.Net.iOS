@@ -14,7 +14,7 @@
       stay a one-file port between the two.
     -->
     <SfmcNativeVersion>11.0.2</SfmcNativeVersion>
-    <SfmcBindingRevision>1</SfmcBindingRevision>
+    <SfmcBindingRevision>2</SfmcBindingRevision>
     <VersionPrefix>$(SfmcNativeVersion).$(SfmcBindingRevision)</VersionPrefix>
 
     <!--
@@ -30,7 +30,7 @@
       package - mirroring how the native package manifests depend on sfmc-sdk-ios (~> 4.0.1,
       which is exactly what this pin's first three components wrap).
     -->
-    <SfmcCorePackageVersion>4.0.1.1</SfmcCorePackageVersion>
+    <SfmcCorePackageVersion>4.0.1.2</SfmcCorePackageVersion>
   </PropertyGroup>
 
   <PropertyGroup>

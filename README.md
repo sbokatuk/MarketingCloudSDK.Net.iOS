@@ -13,21 +13,27 @@ dotnet add package MarketingCloudSDK.Net.iOS
 ```
 
 ```csharp
+using Foundation;
 using MarketingCloudSDK;
 using SFMCSDK;
 
 var pushConfig = new SFMarketingCloudSdkConfigBuilder("your-app-id")
     .SetAccessToken("your-access-token")
-    .SetMarketingCloudServerUrl("https://your-tenant.device.marketingcloudapis.com/")
+    // NSUrl, not a string - the builder takes the native type the header declares.
+    .SetMarketingCloudServerUrl(new NSUrl("https://your-tenant.device.marketingcloudapis.com/"))
     .SetMid("your-mid")
     .Build();
 
 var config = new SFMCSdkConfigBuilder().SetPushFeature(pushConfig).Build();
 SFMCSdk.InitializeSdk(config, statuses => { });
 
-// The sfmc_* category surface lives on MobilePushSDK (renamed from MarketingCloudSDK at v11):
+// Contact key at v11 is a core identity edit, not a module call:
+SFMCSdk.Identity.Edit(modifier => { modifier.ProfileId = "contact-key"; return modifier; });
+
+// The sfmc_* category surface lives on MobilePushSDK (renamed from MarketingCloudSDK at v11).
+// Selectors keep their sfmc_ prefix natively; the binding projects them without it:
 var sdk = MobilePushSDK.SharedInstance;
-sdk.Sfmc_setContactKey("contact-key");
+var pushEnabled = sdk.IsPushEnabled;
 ```
 
 The SFMC SDK core (`SFMCSDK.Net.iOS`) and the AppGroupSDK payload (`MarketingCloudSDK.Net.AppGroupSDK.iOS`) arrive as dependencies of this package, mirroring the native package manifests. Android lives in the sibling [MarketingCloudSDK.Net.Android](https://github.com/sbokatuk/MarketingCloudSDK.Net.Android); a cross-platform ergonomic layer lives in [MarketingCloudSDK.Net](https://github.com/sbokatuk/MarketingCloudSDK.Net).
@@ -55,11 +61,11 @@ The SFMC SDK core (`SFMCSDK.Net.iOS`) and the AppGroupSDK payload (`MarketingClo
 | `MarketingCloudSDK.Net.iOS` | `MarketingCloudSDK.xcframework` 11.0.2 | `SFMCSDK.Net.iOS`, `MarketingCloudSDK.Net.AppGroupSDK.iOS` | Push registration, inbox, in-app messages, location |
 | `MarketingCloudSDK.Net.AppGroupSDK.iOS` | `AppGroupSDK.xcframework` 1.0.0 | — | Payload-only: the internal app-group storage layer v11 requires; no API projected |
 
-Versions are `<MarketingCloudSDK version>.<binding revision>` — `11.0.2.1` is MarketingCloudSDK 11.0.2, binding revision 1. Both packages version together; AppGroupSDK's own native line (1.0.0) is pinned in `Directory.Build.props`.
+Versions are `<MarketingCloudSDK version>.<binding revision>` — `11.0.2.3` is MarketingCloudSDK 11.0.2, binding revision 3. Both packages version together; AppGroupSDK's own native line (1.0.0) is pinned in `Directory.Build.props`.
 
 ## What is bound, and how
 
-**By hand, never by Sharpie**, descending from the hand-curated 8.x binding, ported to 11.0.2 by header diff and verified with a bidirectional selector-parity check (every selector in all ten headers bound, no stale selectors). The packed binding passes live smoke tests on a simulator — all three frameworks load together and the module-configured initialization completion fires.
+**By hand, never by Sharpie**, descending from the hand-curated 8.x binding, ported to 11.0.2 by header diff and verified with a bidirectional selector-parity check (every selector in all ten headers bound, no stale selectors). The packed binding passes live smoke tests on a simulator — all three frameworks load together and a module-configured initialization is accepted by the core with its module roster intact.
 
 What changed at v11, for consumers of the old 8.x packages:
 
@@ -71,7 +77,7 @@ What changed at v11, for consumers of the old 8.x packages:
 ## Installing
 
 ```xml
-<PackageReference Include="MarketingCloudSDK.Net.iOS" Version="11.0.2.2" />
+<PackageReference Include="MarketingCloudSDK.Net.iOS" Version="11.0.2.3" />
 ```
 
 Target frameworks: `net8.0-ios18.0`, `net9.0-ios18.0`, `net10.0-ios26.0`. Floor: **iOS 12.2**.
@@ -102,7 +108,7 @@ Nothing native is committed. Salesforce commits the built xcframeworks into the 
 
 ```sh
 ./build/FetchXcFrameworks.sh          # populate ./libs, checksum-verified
-./build/BuildNugets.sh                # packs 11.0.2.2 into ./artifacts
+./build/BuildNugets.sh                # packs 11.0.2.3 into ./artifacts
 dotnet test tests/MarketingCloudSDK.Net.iOS.PackageTests
 ```
 
@@ -112,10 +118,12 @@ dotnet test tests/MarketingCloudSDK.Net.iOS.PackageTests
 
 ```sh
 dotnet test tests/MarketingCloudSDK.Net.iOS.PackageTests
-./.github/scripts/run-simulator-tests.sh 11.0.2.2 net9.0-ios18.0
+./.github/scripts/run-simulator-tests.sh 11.0.2.3 net9.0-ios18.0
 ```
 
-The simulator tests run without credentials on purpose: all three frameworks load, the module-configured `initializeSdk` completion fires with real statuses (the block bridge the core repository's zero-module tests cannot reach), and the `MobilePushSDK` category surface answers.
+The simulator tests run without credentials on purpose: all three frameworks load (each probed by a real exported ObjC class name), a module-configured `initializeSdk` is accepted and the core's module roster still reports `pushfeature` with a parseable per-module shape, and the `MobilePushSDK` category surface answers.
+
+What they cannot prove, and do not claim to: that the push module finished initializing. Measured on 11.0.2, an unprovisioned tenant leaves every module reading `"status": "inactive"` and the completion block never fires — and nothing in either state JSON reflects the configuration that was passed, so no credential-free assertion exists for it. That belongs to the manual checklist with a provisioned tenant and an APNs entitlement.
 
 ## Upgrading the SFMC SDK
 

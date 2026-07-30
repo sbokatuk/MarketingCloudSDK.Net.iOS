@@ -10,7 +10,7 @@ set -euo pipefail
 VERSION="${1:?a package version is required}"
 TARGET_FRAMEWORK="${2:-net10.0-ios26.0}"
 
-BUNDLE_ID="com.sbokatuk.sfmcsdknet.devicetests"
+BUNDLE_ID="com.sbokatuk.mcsdknet.devicetests"
 LOG_FILE="simulator-tests.log"
 # CI runners are Apple silicon. Override for an Intel runner, whose simulator is x64.
 SIMULATOR_RID="${SFMC_SIMULATOR_RID:-iossimulator-arm64}"

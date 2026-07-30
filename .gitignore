@@ -59,13 +59,6 @@ BenchmarkDotNet.Artifacts/
 # .NET Core
 project.lock.json
 project.fragment.lock.json
-# Ignore the packages, but keep the directory itself: NuGet.config declares ./artifacts as a
-# package source, and restore fails with NU1301 if a local source does not exist. The pattern
-# must exclude the directory's *contents* rather than the directory - git cannot re-include a
-# file whose parent directory is excluded, which silently makes the negation below a no-op.
-artifacts/*
-!artifacts/.gitkeep
-
 # StyleCop
 StyleCopReport.xml
 
@@ -354,16 +347,14 @@ MigrationBackup/
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
 
-# Downloaded native Datadog xcframeworks. ~130 MB across eleven frameworks, reproducible from a
-# pinned SHA-256 - see build/checksums.txt and build/FetchXcFrameworks.sh.
+# Downloaded native xcframeworks: MarketingCloudSDK and AppGroupSDK, reproducible from pinned
+# SHA-256 hashes - see build/checksums.txt and build/FetchXcFrameworks.sh.
 /libs/
 
-# Raw `sharpie bind` output. Reconciled by hand into each project's ApiDefinitions.cs and
-# StructsAndEnums.cs, which are the committed sources - this directory is scratch.
-/Binding/
-
-# Packed output. artifacts/ itself is a NuGet source declared in NuGet.config, so the directory
-# has to survive a clean checkout even though nothing in it does.
+# Packed output. artifacts/ itself is a NuGet source declared in NuGet.config, so the directory has
+# to survive a clean checkout even though nothing in it does. The pattern must exclude the
+# directory's *contents* rather than the directory: git cannot re-include a file whose parent
+# directory is excluded, which would silently make the negation below a no-op.
 artifacts/*
 !artifacts/.gitkeep
 

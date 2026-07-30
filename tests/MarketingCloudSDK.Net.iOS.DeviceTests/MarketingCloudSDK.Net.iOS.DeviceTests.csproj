@@ -14,7 +14,7 @@
     <CheckEolTargetFramework>false</CheckEolTargetFramework>
     <CheckEolWorkloads>false</CheckEolWorkloads>
 
-    <ApplicationId>com.sbokatuk.sfmcsdknet.devicetests</ApplicationId>
+    <ApplicationId>com.sbokatuk.mcsdknet.devicetests</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <SupportedOSPlatformVersion>12.2</SupportedOSPlatformVersion>

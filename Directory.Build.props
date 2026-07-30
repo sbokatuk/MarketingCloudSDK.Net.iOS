@@ -14,7 +14,7 @@
       stay a one-file port between the two.
     -->
     <SfmcNativeVersion>11.0.2</SfmcNativeVersion>
-    <SfmcBindingRevision>2</SfmcBindingRevision>
+    <SfmcBindingRevision>3</SfmcBindingRevision>
     <VersionPrefix>$(SfmcNativeVersion).$(SfmcBindingRevision)</VersionPrefix>
 
     <!--

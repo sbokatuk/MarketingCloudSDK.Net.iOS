@@ -24,7 +24,11 @@
 # revision), a pin AHEAD of it is the normal mid-flight state of a release train (the sibling
 # publishes first) and is only logged.
 #
-# group	label	kind	pin	locator	confirm
+#   source   owner/repo publishing the component - optional, and only meaningful on nuget
+#            rows, where the drift finding links that repository's release notes for the
+#            version it reports
+#
+# group	label	kind	pin	locator	confirm	source
 MobilePush iOS	MarketingCloudSDK-iOS	github-tag	SfmcNativeVersion	salesforce-marketingcloud/MarketingCloudSDK-iOS	https://github.com/salesforce-marketingcloud/MarketingCloudSDK-iOS/archive/refs/tags/v{version}.zip
 MobilePush iOS	app-group-internal-sdk	github-tag	SfmcAppGroupVersion	salesforce-marketingcloud/app-group-internal-sdk	https://github.com/salesforce-marketingcloud/app-group-internal-sdk/archive/refs/tags/v{version}.zip
-SFMC SDK core	SFMCSDK.Net.iOS	nuget	SfmcCorePackageVersion	SFMCSDK.Net.iOS	-
+SFMC SDK core	SFMCSDK.Net.iOS	nuget	SfmcCorePackageVersion	SFMCSDK.Net.iOS	-	sbokatuk/SFMCSDK.Net.iOS

@@ -4,10 +4,13 @@
 # stale silently on every release. Running this in CI makes the version bump before a release
 # drag the README along with it.
 #
-# What is checked: every <PackageReference Include="SFMCSDK.Net..." Version="..."> pin, and the
-# device-check example (run-simulator-tests.sh <version> ...). Prose that explains the version
-# *scheme* ("4.0.1.1 is SFMCSDK 4.0.1, binding revision 1") is deliberately not checked - it
-# describes the format, not the current release.
+# What is checked: every <PackageReference Include="MarketingCloudSDK.Net..." Version="..."> pin,
+# and the device-check example (run-simulator-tests.sh <version> ...). Prose that explains the
+# version *scheme* ("11.0.2.1 is MarketingCloudSDK 11.0.2, binding revision 1") is deliberately
+# not checked - it describes the format, not the current release.
+#
+# The package ids are this repository's own, which version together; the SFMCSDK.Net.iOS
+# dependency rides its own version line and is deliberately not matched here.
 set -eu
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -22,7 +25,7 @@ version="$(prop SfmcNativeVersion).$(prop SfmcBindingRevision)"
 
 bad=0
 
-pins=$(grep -o 'Include="SFMCSDK\.Net[^"]*"[[:space:]]*Version="[^"]*"' "$readme" | sed 's/.*Version="\([^"]*\)"/\1/' || true)
+pins=$(grep -o 'Include="MarketingCloudSDK\.Net[^"]*"[[:space:]]*Version="[^"]*"' "$readme" | sed 's/.*Version="\([^"]*\)"/\1/' || true)
 for pin in $pins; do
     if [ "$pin" != "$version" ]; then
         echo "README.md pins a PackageReference at $pin, but this repository builds $version" >&2

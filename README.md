@@ -71,7 +71,7 @@ What changed at v11, for consumers of the old 8.x packages:
 ## Installing
 
 ```xml
-<PackageReference Include="MarketingCloudSDK.Net.iOS" Version="11.0.2.1" />
+<PackageReference Include="MarketingCloudSDK.Net.iOS" Version="11.0.2.2" />
 ```
 
 Target frameworks: `net8.0-ios18.0`, `net9.0-ios18.0`, `net10.0-ios26.0`. Floor: **iOS 12.2**.
@@ -102,7 +102,7 @@ Nothing native is committed. Salesforce commits the built xcframeworks into the 
 
 ```sh
 ./build/FetchXcFrameworks.sh          # populate ./libs, checksum-verified
-./build/BuildNugets.sh                # packs 11.0.2.1 into ./artifacts
+./build/BuildNugets.sh                # packs 11.0.2.2 into ./artifacts
 dotnet test tests/MarketingCloudSDK.Net.iOS.PackageTests
 ```
 
@@ -112,7 +112,7 @@ dotnet test tests/MarketingCloudSDK.Net.iOS.PackageTests
 
 ```sh
 dotnet test tests/MarketingCloudSDK.Net.iOS.PackageTests
-./.github/scripts/run-simulator-tests.sh 11.0.2.1 net9.0-ios18.0
+./.github/scripts/run-simulator-tests.sh 11.0.2.2 net9.0-ios18.0
 ```
 
 The simulator tests run without credentials on purpose: all three frameworks load, the module-configured `initializeSdk` completion fires with real statuses (the block bridge the core repository's zero-module tests cannot reach), and the `MobilePushSDK` category surface answers.
@@ -123,7 +123,7 @@ The simulator tests run without credentials on purpose: all three frameworks loa
 ./build/BumpNativeVersion.sh 11.1.0
 ```
 
-then port the header diff into `ApiDefinitions.cs` by hand — the script prints what it does not automate. Bump the sibling `SFMCSDK.Net.iOS` first when `sfmc-sdk-ios` moved; `upstream-drift` watches both repositories this package binds.
+then port the header diff into `ApiDefinitions.cs` by hand — the script prints what it does not automate. Bump the sibling `SFMCSDK.Net.iOS` first when `sfmc-sdk-ios` moved; `upstream-drift` watches both repositories this package binds, and the sibling's package on nuget.org — a core release lands here as a re-pin of `SfmcCorePackageVersion` in `Directory.Build.props` and a binding-revision release.
 
 ## Releasing
 

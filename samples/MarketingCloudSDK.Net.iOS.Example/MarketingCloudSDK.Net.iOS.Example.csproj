@@ -1,7 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net10.0-ios26.0</TargetFrameworks>
+		<!--
+		  Which of the package's bands the sample is built for. One at a time rather than all
+		  three at once: the target framework has to be one the SDK on the machine understands,
+		  and net10.0-ios26.0 needs the .NET 10 band while the repository's global.json pins
+		  .NET 9. Multi-targeting them together fails at restore, which evaluates every target
+		  framework whatever the build was asked for. Pass -p:SfmcSdkBand=net10 from a directory
+		  whose global.json selects the .NET 10 SDK to build that band.
+		-->
+		<SfmcSdkBand Condition=" '$(SfmcSdkBand)' == '' ">net9</SfmcSdkBand>
+		<TargetFrameworks Condition=" '$(SfmcSdkBand)' == 'net8' ">net8.0-ios18.0</TargetFrameworks>
+		<TargetFrameworks Condition=" '$(SfmcSdkBand)' == 'net9' ">net9.0-ios18.0</TargetFrameworks>
+		<TargetFrameworks Condition=" '$(SfmcSdkBand)' == 'net10' ">net10.0-ios26.0</TargetFrameworks>
 
 		<OutputType>Exe</OutputType>
 		<RootNamespace>MarketingCloudSDK.Net.iOS.Example</RootNamespace>
@@ -11,7 +22,7 @@
 		<Nullable>enable</Nullable>
 
 		<ApplicationTitle>MarketingCloudSDK.Net.iOS.Example</ApplicationTitle>
-		<ApplicationId>com.sbokatuk.sfmcsdknet.example</ApplicationId>
+		<ApplicationId>com.sbokatuk.mcsdknet.example</ApplicationId>
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
 		<ApplicationVersion>1</ApplicationVersion>
 
@@ -46,10 +57,6 @@
 	  Resolved from ./artifacts through the local feed in the repository's NuGet.config, not from
 	  nuget.org, so the sample always exercises your local build. Run ./build/BuildNugets.sh first.
 	  Pass -p:SfmcPackageVersion=4.0.1.2-rc.1 to point it at a specific build.
-
-	  net10 to match the sibling repositories' samples; the package itself targets net8, net9 and
-	  net10. Building this needs the .NET 10 SDK, which the repository's global.json does not
-	  select - see the command in the README.
 	-->
 	<PropertyGroup>
 		<SfmcPackageVersion Condition=" '$(SfmcPackageVersion)' == '' ">$(VersionPrefix)</SfmcPackageVersion>

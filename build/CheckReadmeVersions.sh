@@ -26,6 +26,17 @@ version="$(prop SfmcNativeVersion).$(prop SfmcBindingRevision)"
 bad=0
 
 pins=$(grep -o 'Include="MarketingCloudSDK\.Net[^"]*"[[:space:]]*Version="[^"]*"' "$readme" | sed 's/.*Version="\([^"]*\)"/\1/' || true)
+
+# The core pin is a different release line, so it is checked against its own property rather than
+# this repository's version. Without this the README could name any SFMCSDK.Net.iOS version at all
+# and the check would pass - the pattern above only ever matched this repository's own package ids.
+core_version="$(prop SfmcCorePackageVersion)"
+for pin in $(grep -o 'Include="SFMCSDK\.Net\.iOS"[[:space:]]*Version="[^"]*"' "$readme" | sed 's/.*Version="\([^"]*\)"/\1/' || true); do
+  if [ "$pin" != "$core_version" ]; then
+    printf "README pins SFMCSDK.Net.iOS %s, but Directory.Build.props builds against %s\n" "$pin" "$core_version"
+    bad=1
+  fi
+done
 for pin in $pins; do
     if [ "$pin" != "$version" ]; then
         echo "README.md pins a PackageReference at $pin, but this repository builds $version" >&2
